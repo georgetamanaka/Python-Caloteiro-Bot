@@ -22,7 +22,7 @@ def print_info(bot, update):
 #	items = db.get_items()
 	db = DBHelper()
 	db.setup()
-	db.add_item()
+	db.add_item(update.message.chat_id, "@george", "@ana", 4.50);
 	db.get_all()
 
 	print ("upadate_id: " + str(update.update_id))	
