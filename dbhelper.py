@@ -61,13 +61,16 @@ class DBHelper:
         self.cursor.execute("INSERT INTO balance (chat_id, creditor_id, debtor_id, value) VALUES (?, ?, ?, ?)", args)
         self.conn.commit()
 
-    def overview_balance(self, args):
+    def overview(self, args):
         self.cursor.execute("SELECT * FROM balance WHERE chat_id = ?", args)
         vector = self.cursor.fetchall();
-        return vector.sort(key=lambda x:x[2])
+        vector.sort(key=lambda x:x[2])
+
+        return vector
 
     def get_all(self):
-        self.cursor.execute("SELECT * FROM chat_state")
+        self.cursor.execute("SELECT * FROM balance")
 
+        print("printandooooo")
         for linha in self.cursor.fetchall():
             print(linha)
