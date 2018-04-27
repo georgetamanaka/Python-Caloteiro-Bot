@@ -1,4 +1,4 @@
-# CaloteiroBotPythonVersion
+# Caloteiro Bot 1.0
 
 A telegram bot which has been designed to take the pain out of remembering.
 
