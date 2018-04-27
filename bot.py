@@ -1,5 +1,6 @@
 import logging
 import time
+
 from telegram import ForceReply, ChatAction, ReplyKeyboardMarkup, ParseMode
 from telegram.ext import Updater, CommandHandler, MessageHandler, Filters
 from dbhelper import DBHelper
@@ -23,7 +24,7 @@ def loan(bot, update):
 		db.insert_chat(arg1)
 	
 	db.update_chat_state((0, int(update.message.chat_id)))
-	bot.send_message(chat_id=update.message.chat_id, text="Quem emprestou? 💸", reply_markup=ForceReply(True, True))
+	bot.send_message(chat_id=update.message.chat_id, text="Quem emprestou?", reply_markup=ForceReply(True, False))
 
 def payment(bot, update):
 	db = DBHelper()
@@ -36,15 +37,15 @@ def payment(bot, update):
 		db.insert_chat(arg1)
 	
 	db.update_chat_state((3, int(update.message.chat_id)))
-	bot.send_message(chat_id=update.message.chat_id, text="Quem emprestou? 💸", reply_markup=ForceReply(True, True))
+	bot.send_message(chat_id=update.message.chat_id, text="Quem emprestou?", reply_markup=ForceReply(True, False))
 
 def ask_for_creditor(bot, update, db):
 	db.update_chat_creditor((update.message.text, update.message.chat_id))
-	bot.send_message(chat_id=update.message.chat_id, text="Quem pegou emprestado? 💸", reply_markup=ForceReply(True, True))
+	bot.send_message(chat_id=update.message.chat_id, text="Quem pegou emprestado?", reply_markup=ForceReply(True, False))
 
-def ask_for_debtor(bot, update, db):
+def ask_for_value(bot, update, db):
 	db.update_chat_debtor((update.message.text, update.message.chat_id))
-	bot.send_message(chat_id=update.message.chat_id, text="Qual o valor? 💸", reply_markup=ForceReply(True, True))
+	bot.send_message(chat_id=update.message.chat_id, text="Qual o valor?", reply_markup=ForceReply(True, False))
 
 def finish_loan(bot, update, db, chat):
 	value = float(update.message.text)
@@ -83,7 +84,7 @@ def balance_overview(bot, update):
 	nDebtor = 1
 	debtor = ""
 	chatBalance = db.overview((int(update.message.chat_id), ))
-	message = "<b>Balanço de dívidas</b>\n"
+	message = "<b>Balanço de dívidas</b>💰\n"
 
 	for transaction in chatBalance:
 		if(transaction[2] != debtor):
@@ -100,7 +101,6 @@ def message(bot, update):
 	db.setup()
 
 	chat = db.search_chat((int(update.message.chat_id), )) 
-	print("chaaat: " + str(chat))
 
 	if(chat == None):
 		start(bot, update)
@@ -111,7 +111,7 @@ def message(bot, update):
 			ask_for_creditor(bot, update, db)
 			db.update_chat_state((1, int(update.message.chat_id)))
 		elif(state == 1):
-			ask_for_debtor(bot, update, db)
+			ask_for_value(bot, update, db)
 			db.update_chat_state((2, int(update.message.chat_id)))
 		elif(state == 2):
 			finish_loan(bot, update, db, chat)
@@ -119,7 +119,7 @@ def message(bot, update):
 			ask_for_creditor(bot, update, db)
 			db.update_chat_state((4, int(update.message.chat_id)))
 		elif(state == 4):
-			ask_for_debtor(bot, update, db)
+			ask_for_value(bot, update, db)
 			db.update_chat_state((5, int(update.message.chat_id)))
 		elif(state == 5):
 			finish_payment(bot, update, db)
