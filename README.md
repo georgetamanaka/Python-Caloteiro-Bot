@@ -3,6 +3,7 @@
 A telegram bot which has been designed to take the pain out of remembering.
 
 [![Python: 3.6](https://img.shields.io/badge/Python-3.6-blue.svg)](https://www.python.org/)
+[![SQLite: 3](https://img.shields.io/badge/SQLite-3.0-yellow.svg)](https://www.sqlite.org/index.html)
 [![Telegram: chatbot](https://img.shields.io/badge/Telegram-chatbot-red.svg)](https://telegram.org/blog/bot-revolution)
 
 ## Tools
