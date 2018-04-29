@@ -1,26 +1,18 @@
-import logging
-import time
+try:
+	from telegram import ForceReply, ChatAction, ReplyKeyboardMarkup, ParseMode
+	from telegram.ext import Updater, CommandHandler, MessageHandler, Filters
+	from dbhelper import DBHelper
 
-from telegram import ForceReply, ChatAction, ReplyKeyboardMarkup, ParseMode
-from telegram.ext import Updater, CommandHandler, MessageHandler, Filters
-from dbhelper import DBHelper
+except KeyboardInterrupt:
+	print ("\n\nStopping...")
+	raise SystemExit
+
+except:
+	print("[!] Requirements are not installed... Please run the 'setup.py' script first.")
+    raise SystemExit
+
 
 CHAT_ID, CHAT_STATE, CREDITOR_ID, DEBTOR_ID, VALUE_AMT = range(5)
-
-def get_chat(db, id, state):
-	id = int(id)
-	
-	chat = db.search_chat((id, )) 
-
-	if(chat == None):
-		db.insert_chat((id, state))
-	else:
-		db.update_chat_state((state, id))
-
-	return chat
-
-def unknow(bot, update):
-	bot.send_message(chat_id=update.message.chat_id, text="Comando inválido.", reply_to_message_id=update.message.message_id, reply_markup=ForceReply(True, True))
 
 def start(bot, update):
 	custom_keyboard = [['/emprestimo', '/pagamento'], 
@@ -31,40 +23,20 @@ def start(bot, update):
 					text="Olá, eu sou o caloteiroBot", 
 					reply_markup=ReplyKeyboardMarkup(custom_keyboard))
 
-def loan(bot, update):
-	db = DBHelper()
+def unknow(bot, update):
+	bot.send_message(chat_id=update.message.chat_id, text="Comando inválido.", reply_to_message_id=update.message.message_id, reply_markup=ForceReply(True, True))
 
-	get_chat(db, update.message.chat_id, 0)
-
-	bot.send_message(chat_id=update.message.chat_id, 
-					text="Quem emprestou?", 
-					reply_to_message_id = update.message.message_id,
-					reply_markup=ForceReply(True, False), 
-					parse_mode=ParseMode.HTML)
-
-def payment(bot, update):
-	db = DBHelper()
-
-	get_chat(db, update.message.chat_id, 3)
-
-	bot.send_message(chat_id=update.message.chat_id, 
-					text="Quem emprestou?", 
-					reply_markup=ForceReply(True, False))
-
-def ask_for_creditor(bot, update, db):
-	db.update_chat_creditor((update.message.text, update.message.chat_id))
+def getChat(db, id, state):
+	id = int(id)
 	
-	bot.send_message(chat_id=update.message.chat_id, 
-					text="Quem pegou emprestado?", 
-					reply_markup=ForceReply(True, False))
+	chat = db.search_chat((id, )) 
 
-def ask_for_value(bot, update, db):
-	db.update_chat_debtor((update.message.text, update.message.chat_id))
-	
-	bot.send_message(chat_id=update.message.chat_id, 
-					text="Qual o valor?", 
-					reply_markup=ForceReply(True, False))
+	if(chat == None):
+		db.insert_chat((id, state))
+	else:
+		db.update_chat_state((state, id))
 
+	return chat
 
 def getBalance(db, chat, amount):
 	args = (chat[CHAT_ID], chat[CREDITOR_ID], chat[DEBTOR_ID])
@@ -87,6 +59,39 @@ def getBalance(db, chat, amount):
 
 	return balance
 
+def loan(bot, update):
+	db = DBHelper()
+
+	getChat(db, update.message.chat_id, 0)
+
+	bot.send_message(chat_id=update.message.chat_id, 
+					text="Quem emprestou?", 
+					reply_to_message_id = update.message.message_id,
+					reply_markup=ForceReply(True, False), 
+					parse_mode=ParseMode.HTML)
+
+def payment(bot, update):
+	db = DBHelper()
+
+	getChat(db, update.message.chat_id, 3)
+
+	bot.send_message(chat_id=update.message.chat_id, 
+					text="Quem emprestou?", 
+					reply_markup=ForceReply(True, False))
+
+def setCreditor(bot, update, db):
+	db.update_chat_creditor((update.message.text, update.message.chat_id))
+	
+	bot.send_message(chat_id=update.message.chat_id, 
+					text="Quem pegou emprestado?", 
+					reply_markup=ForceReply(True, False))
+
+def setValue(bot, update, db):
+	db.update_chat_debtor((update.message.text, update.message.chat_id))
+	
+	bot.send_message(chat_id=update.message.chat_id, 
+					text="Qual o valor?", 
+					reply_markup=ForceReply(True, False))
 
 def finishLoan(bot, update, db, chat):
 	balance = getBalance(db, chat, float(update.message.text))
@@ -143,49 +148,27 @@ def balance_overview(bot, update):
 def control(bot, update):
 	db = DBHelper()
 	
-	#fetch chat infos (id, state)
-	chat = get_chat(db, update.message.chat_id, -1) 
-		
-	state = chat[1]
+	chat = getChat(db, update.message.chat_id, -1) 
+	state = chat[CHAT_STATE]
 
 	if(state == 0):
-		ask_for_creditor(bot, update, db)
+		setCreditor(bot, update, db)
 		db.update_chat_state((1, int(update.message.chat_id)))
 	
 	elif(state == 1):
-		ask_for_value(bot, update, db)
+		setValue(bot, update, db)
 		db.update_chat_state((2, int(update.message.chat_id)))
 	
 	elif(state == 2):
 		finishLoan(bot, update, db, chat)
 	
 	elif(state == 3):
-		ask_for_creditor(bot, update, db)
+		setCreditor(bot, update, db)
 		db.update_chat_state((4, int(update.message.chat_id)))
 	
 	elif(state == 4):
-		ask_for_value(bot, update, db)
+		setValue(bot, update, db)
 		db.update_chat_state((5, int(update.message.chat_id)))
 	
 	elif(state == 5):
 		finishPayment(bot, update, db, chat)
-
-def main():
-	updater = Updater(token='517500543:AAGRhhagJCuwESGJI1Ye2iSQb32POHZsnm4')
-	dispatcher = updater.dispatcher
-	
-	logging.basicConfig(level=logging.DEBUG,
-	                    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-	
-	dispatcher.add_handler(CommandHandler('start', start))
-	dispatcher.add_handler(CommandHandler('emprestimo', loan))
-	dispatcher.add_handler(CommandHandler('pagamento', payment))
-	dispatcher.add_handler(CommandHandler('overview', balance_overview))
-	dispatcher.add_handler(MessageHandler(Filters.text, control))
-	dispatcher.add_handler(MessageHandler(Filters.command, unknow))
-
-	updater.start_polling()
-	updater.idle()
-
-if __name__ == '__main__':
-	main()
