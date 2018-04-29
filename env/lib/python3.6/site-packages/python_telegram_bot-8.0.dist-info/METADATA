@@ -1,0 +1,18 @@
+Metadata-Version: 2.0
+Name: python-telegram-bot
+Version: 8.0
+Summary: We have made you a wrapper you can't refuse
+Home-page: https://python-telegram-bot.org/
+Author: Leandro Toledo
+Author-email: devs@python-telegram-bot.org
+License: LGPLv3
+Requires-Dist: certifi
+Requires-Dist: future (>=0.16.0)
+Provides-Extra: json
+Requires-Dist: ujson; extra == 'json'
+Provides-Extra: socks
+Requires-Dist: PySocks; extra == 'socks'
+
+.. image:: https://github.com/python-telegram-bot/logos/blob/master/logo-text/png/ptb-logo-text_768.png?raw=true
+
+
