@@ -59,6 +59,7 @@ class BotDataBase:
             state int,
             creditor_id varchar(20),
             debtor_id varchar(20),
+            amount float,
 
             UNIQUE (chat_id)
         )""")
@@ -74,12 +75,23 @@ class BotDataBase:
     def updateChatState(self, args):
         self.cursor.execute("UPDATE chat_state SET state = ? WHERE chat_id = ?", args)
         self.conn.commit()
+
+    def updateChatCreditor(self, args):
+        print("updating chat creditor...")
+        self.cursor.execute("UPDATE chat_state SET creditor_id = ? WHERE chat_id = ?", args)
+        self.conn.commit()
+
+    def updateChatDebtor(self, args):
+        self.cursor.execute("UPDATE chat_state SET debtor_id = ? WHERE chat_id = ?", args)
+        self.conn.commit()
+
+    def updateChatAmount(self, args):
+        self.cursor.execute("UPDATE chat_state SET amount = ? WHERE chat_id = ?", args)
+        self.conn.commit()    
     
     def deletechat(self, args):
         self.cursor.execute("DELETE FROM chat_state WHERE chat_id = ?", args)
         self.conn.commit()
-
-
 
     def updateUser(self, args):
         self.cursor.execute("UPDATE users WHERE user_id = ? SET credits = ? AND debts = ?", args)
@@ -95,15 +107,6 @@ class BotDataBase:
 
     def updateUserCredits(self, args):
         self.cursor.execute("UPDATE users SET credits = ? WHERE user_id = ?", args)
-        self.conn.commit()
-
-    def updateChatCreditor(self, args):
-        print("updating chat creditor...")
-        self.cursor.execute("UPDATE chat_state SET creditor_id = ? WHERE chat_id = ?", args)
-        self.conn.commit()
-
-    def updateChatDebtor(self, args):
-        self.cursor.execute("UPDATE chat_state SET debtor_id = ? WHERE chat_id = ?", args)
         self.conn.commit()
 
     def overview(self, args):

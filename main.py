@@ -2,7 +2,7 @@ import logging
 import time
 
 from telegram import ForceReply, ChatAction, ReplyKeyboardMarkup, ParseMode
-from telegram.ext import Updater, CommandHandler, MessageHandler, ConversationHandler, Filters
+from telegram.ext import Updater, CommandHandler, MessageHandler, ConversationHandler, CallbackQueryHandler, Filters
 from dbhelper import BotDataBase
 import bot
 
@@ -15,6 +15,8 @@ def main():
 	logging.basicConfig(level=logging.DEBUG,
 	                    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 	
+	updater.dispatcher.add_handler(CallbackQueryHandler(bot.cancel))
+
 	dispatcher.add_handler(
 		ConversationHandler(
 
