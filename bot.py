@@ -1,7 +1,7 @@
 try:
 	from telegram import ForceReply, ChatAction, ReplyKeyboardMarkup, ParseMode
 	from telegram.ext import Updater, CommandHandler, MessageHandler, Filters
-	from dbhelper import DBHelper
+	from dbhelper import BotDataBase
 
 except KeyboardInterrupt:
 	print ("\n\nStopping...")
@@ -9,130 +9,130 @@ except KeyboardInterrupt:
 
 except:
 	print("[!] Requirements are not installed... Please run the 'setup.py' script first.")
-    raise SystemExit
-
+	raise SystemExit
 
 CHAT_ID, CHAT_STATE, CREDITOR_ID, DEBTOR_ID, VALUE_AMT = range(5)
+EXIT, RECEIVER, AMOUNT, REGISTER = range(-1, 3)
+PAYMENT = -1
+LOAN = 1
 
 def start(bot, update):
-	custom_keyboard = [['/emprestimo', '/pagamento'], 
-						['/overview', '/dividas']]
-
-	
 	bot.send_message(chat_id=update.message.chat_id, 
-					text="Olá, eu sou o caloteiroBot", 
-					reply_markup=ReplyKeyboardMarkup(custom_keyboard))
+					text="Olá, eu sou o caloteiroBot")
 
-def unknow(bot, update):
-	bot.send_message(chat_id=update.message.chat_id, text="Comando inválido.", reply_to_message_id=update.message.message_id, reply_markup=ForceReply(True, True))
+def getChat(chatId):
+	data = BotDataBase()
 
-def getChat(db, id, state):
-	id = int(id)
-	
-	chat = db.search_chat((id, )) 
+	data.createChat((chatId, -1))
 
-	if(chat == None):
-		db.insert_chat((id, state))
-	else:
-		db.update_chat_state((state, id))
+	return data.readChat((chatId, ))
 
-	return chat
-
-def getBalance(db, chat, amount):
-	args = (chat[CHAT_ID], chat[CREDITOR_ID], chat[DEBTOR_ID])
-
-	balance = db.search_balance(args)
-
-	if(balance == None):
-		args = (chat[CHAT_ID], chat[CREDITOR_ID], chat[DEBTOR_ID], amount)
-		db.insert_balance(args)
-	else:
-		amount = balance[3] + amount
-
-		if (amount == 0):
-			db.remove_balance(args)
-		else:
-			args = (amount, chat[CHAT_ID], chat[CREDITOR_ID], chat[DEBTOR_ID])
-			db.update_balance(args)
-		
-		db.get_all()
+def getBalance(chatInfo):
+	BotDataBase().createBalance((chatInfo[CHAT_ID], chatInfo[CREDITOR_ID], chatInfo[DEBTOR_ID], 0))
+	balance = BotDataBase().readBalance((chatInfo[CHAT_ID], chatInfo[CREDITOR_ID], chatInfo[DEBTOR_ID]))
 
 	return balance
 
-def loan(bot, update):
-	db = DBHelper()
+def updateBalance(update, chatInfo):
+	BotDataBase().createBalance((chatInfo[CHAT_ID], chatInfo[CREDITOR_ID], chatInfo[DEBTOR_ID], 0))
+	BotDataBase().updateBalance((float(update.message.text) * chatInfo[CHAT_STATE], chatInfo[CHAT_ID], chatInfo[CREDITOR_ID], chatInfo[DEBTOR_ID]))
 
-	getChat(db, update.message.chat_id, 0)
+def sendMessageTagging(bot, update, message, force):
+	bot.send_message(
+		chat_id = update.message.chat_id, 
+		text = message,
+		reply_markup = ForceReply(force, True),
+		reply_to_message_id = update.message.message_id, 
+		parse_mode = ParseMode.HTML
+	)
 
-	bot.send_message(chat_id=update.message.chat_id, 
-					text="Quem emprestou?", 
-					reply_to_message_id = update.message.message_id,
-					reply_markup=ForceReply(True, False), 
-					parse_mode=ParseMode.HTML)
+def loanStart(bot, update):
+	getChat(int(update.message.chat_id))
 
-def payment(bot, update):
-	db = DBHelper()
-
-	getChat(db, update.message.chat_id, 3)
-
-	bot.send_message(chat_id=update.message.chat_id, 
-					text="Quem emprestou?", 
-					reply_markup=ForceReply(True, False))
-
-def setCreditor(bot, update, db):
-	db.update_chat_creditor((update.message.text, update.message.chat_id))
+	BotDataBase().updateChatState((1, int(update.message.chat_id)))
 	
-	bot.send_message(chat_id=update.message.chat_id, 
-					text="Quem pegou emprestado?", 
-					reply_markup=ForceReply(True, False))
+	requestCreditor(bot, update)
 
-def setValue(bot, update, db):
-	db.update_chat_debtor((update.message.text, update.message.chat_id))
+	return RECEIVER
+
+def paymentStart(bot, update):
+	getChat(int(update.message.chat_id))
+
+	BotDataBase().updateChatState((-1, int(update.message.chat_id)))
+
+	requestCreditor(bot, update)
+
+	return RECEIVER
+
+def requestCreditor(bot, update):
+	sendMessageTagging(bot, update, "quem deu o dinheiro?", True)
+
+	#debug begin
+	chat = getChat(int(update.message.chat_id))
+	print("------------ DEBUG 1 ------------")
+	print(chat[CHAT_ID])
+	print(chat[CREDITOR_ID])
+	print(chat[DEBTOR_ID])
+	#end debug
+
+def requestDebtor(bot, update):
+	BotDataBase().updateChatCreditor((str(update.message.text), update.message.chat_id))
 	
-	bot.send_message(chat_id=update.message.chat_id, 
-					text="Qual o valor?", 
-					reply_markup=ForceReply(True, False))
-
-def finishLoan(bot, update, db, chat):
-	balance = getBalance(db, chat, float(update.message.text))
-
-	message = "<b>Emprestimo registrado!</b>💰\n" \
-			"Credor: " + balance[1] + \
-			"\nCaloteiro: " + balance[2] + \
-			"\n<i>Valor: R$" + update.message.text + \
-			'\n\n</i>"Aceita vale-refeição?"' \
-			"\n<i>- Julius</i>"
-
-	bot.send_message(chat_id=update.message.chat_id, 
-					text=message, 
-					parse_mode=ParseMode.HTML)
-
-	db.update_chat_state((-1, int(update.message.chat_id)))
+	#debug begin
+	chat = getChat(int(update.message.chat_id))
+	print("------------ DEBUG 2 ------------")
+	print(chat[CHAT_ID])
+	print(chat[CREDITOR_ID])
+	print(chat[DEBTOR_ID])
+	#end debug
 
 
-def finishPayment(bot, update, db, chat_info):	
-	getBalance(db, chat_info, -float(update.message.text))
+	sendMessageTagging(bot, update, "quem recebeu?", True)
 
-	message = "<b>Pagamento registrado!</b>💰\n" + \
-	          "Credor: " + str(chat_info[2]) + \
-	          "\nCaloteiro: " + str(chat_info[3]) + \
-	          "\n<i>Valor: R$" + str(float(update.message.text)) + \
-              '\n\n</i>Aceita vale-refeição?"' \
-              "\n<i>- Julius</i>"
+	return AMOUNT
+ 
+def requestAmount(bot, update):
+	BotDataBase().updateChatDebtor((str(update.message.text), update.message.chat_id))
+	
+	#debug begin
+	chat = getChat(int(update.message.chat_id))
+	print("------------ DEBUG 3 ------------")
+	print(chat[CHAT_ID])
+	print(chat[CREDITOR_ID])
+	print(chat[DEBTOR_ID])
+	#end debug
 
-	bot.send_message(chat_id=update.message.chat_id, 
-					text=message, 
-					parse_mode=ParseMode.HTML)
+	sendMessageTagging(bot, update, "qual o valor?", True)
 
-	db.update_chat_state((-1, int(update.message.chat_id)))
+	return REGISTER
 
-def balance_overview(bot, update):
-	db = DBHelper()
-	db.setup()
+def registerTransaction(bot, update):
+	chatInfo = getChat(int(update.message.chat_id)	)
+
+	if(chatInfo[1] == LOAN):
+		message = "<b>Empréstimo registrado!</b>💰"
+	else:
+		message = "<b>Pagamento registrado!</b>💰"
+
+	updateBalance(update, chatInfo)
+
+	message += "\nCredor: " + chatInfo[CREDITOR_ID] + \
+			   "\nCaloteiro: " + chatInfo[DEBTOR_ID] + \
+			   "\n<i>Valor: R$" + str(update.message.text) + \
+			   '\n\n</i>"Aceita vale-refeição?"' \
+			   "\n<i>- Julius</i>"
+
+	BotDataBase().getAll()
+
+	sendMessageTagging(bot, update, message, False)
+
+def balanceOverview(bot, update):	
+	db = BotDataBase()
+	chatBalance = db.overview((int(update.message.chat_id), ))
 
 	nDebtor = 1
 	debtor = ""
-	chatBalance = db.overview((int(update.message.chat_id), ))
+	
 	message = "<b>Balanço de dívidas</b>💰\n"
 
 	for transaction in chatBalance:
@@ -143,32 +143,4 @@ def balance_overview(bot, update):
 
 		message += "para " + transaction[1] + " R$" + str(transaction[3]) + "\n"
 
-	bot.send_message(chat_id=update.message.chat_id, text=message, parse_mode=ParseMode.HTML)
-
-def control(bot, update):
-	db = DBHelper()
-	
-	chat = getChat(db, update.message.chat_id, -1) 
-	state = chat[CHAT_STATE]
-
-	if(state == 0):
-		setCreditor(bot, update, db)
-		db.update_chat_state((1, int(update.message.chat_id)))
-	
-	elif(state == 1):
-		setValue(bot, update, db)
-		db.update_chat_state((2, int(update.message.chat_id)))
-	
-	elif(state == 2):
-		finishLoan(bot, update, db, chat)
-	
-	elif(state == 3):
-		setCreditor(bot, update, db)
-		db.update_chat_state((4, int(update.message.chat_id)))
-	
-	elif(state == 4):
-		setValue(bot, update, db)
-		db.update_chat_state((5, int(update.message.chat_id)))
-	
-	elif(state == 5):
-		finishPayment(bot, update, db, chat)
+	sendMessageTagging(bot, update, message, False)

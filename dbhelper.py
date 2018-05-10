@@ -1,64 +1,109 @@
 import sqlite3
 
-class DBHelper:
+class BotDataBase:
     def __init__(self, dbname="database.db"):
         self.dbname = dbname
         self.conn = sqlite3.connect(dbname)
         self.cursor = self.conn.cursor()
 
-    def setup(self):
+    def createUsersTable(self):
+        self.cursor.execute("""CREATE TABLE IF NOT EXISTS users (
+            user_id varchar(20),
+            credits float,
+            debts float
+        );""")
+
+    
+    def setup(self):        
+        self.createBalancesTable()
+        self.createChatsTable()
+        self.createUsersTable()
+
+    """
+    CRUD functionality for balance tables.
+    """
+    def createBalancesTable(self):
         self.cursor.execute("""CREATE TABLE IF NOT EXISTS balance (
             chat_id int,
             creditor_id varchar(20),
             debtor_id varchar(20),
-            value float
+            value float,
+
+            UNIQUE (chat_id, creditor_id, debtor_id)
         );""")
 
+    def createBalance(self, args):
+        self.cursor.execute("INSERT OR IGNORE INTO balance (chat_id, creditor_id, debtor_id, value) VALUES (?, ?, ?, ?)", args)
+        self.conn.commit()
+
+    def readBalance(self, args):
+        self.cursor.execute("SELECT * FROM balance WHERE chat_id = ? AND creditor_id = ? AND debtor_id = ?", args)
+        return self.cursor.fetchone()
+
+    def updateBalance(self, args):
+        self.cursor.execute("UPDATE balance SET value = ? WHERE chat_id = ? AND creditor_id = ? AND debtor_id = ?", args)
+        self.conn.commit()
+
+    def deleteBalance(self, args):
+        self.cursor.execute("DELETE FROM balance WHERE chat_id = ? AND creditor_id = ? AND debtor_id = ?", args)
+        self.conn.commit()
+
+    
+    """
+    CRUD functionality for chats tables.
+    """
+
+    def createChatsTable(self):
         self.cursor.execute("""CREATE TABLE IF NOT EXISTS chat_state (
             chat_id int,
             state int,
             creditor_id varchar(20),
-            debtor_id varchar(20)
-        );""")
+            debtor_id varchar(20),
 
-    def search_chat(self, args):
+            UNIQUE (chat_id)
+        )""")
+
+    def createChat(self, args):
+        self.cursor.execute("INSERT OR IGNORE INTO chat_state (chat_id, state) VALUES (?, ?)", args)
+        self.conn.commit()
+
+    def readChat(self, args):
         self.cursor.execute("SELECT * FROM chat_state WHERE chat_id = ?", args)
         return self.cursor.fetchone()
 
-    def remove_chat(self, args):
-        self.cursor.execute("DELETE * FROM chat_state WHERE chat_id = ?", args)
-        self.conn.commit()
-
-    def update_chat_state(self, args):
+    def updateChatState(self, args):
         self.cursor.execute("UPDATE chat_state SET state = ? WHERE chat_id = ?", args)
         self.conn.commit()
+    
+    def deletechat(self, args):
+        self.cursor.execute("DELETE FROM chat_state WHERE chat_id = ?", args)
+        self.conn.commit()
 
-    def update_chat_creditor(self, args):
+
+
+    def updateUser(self, args):
+        self.cursor.execute("UPDATE users WHERE user_id = ? SET credits = ? AND debts = ?", args)
+        self.conn.commit()
+
+    def createUser(self, args):
+        self.cursor.execute("INSERT OR IGNORE INTO users (user_id, credits, debts) VALUES (?, ?, ?)", args)
+        self.conn.commit()
+
+    def searchUser(self, args):
+        self.cursor.execute("SELECT * FROM users WHERE user_id = ?", args)
+        return self.cursor.fetchone()
+
+    def updateUserCredits(self, args):
+        self.cursor.execute("UPDATE users SET credits = ? WHERE user_id = ?", args)
+        self.conn.commit()
+
+    def updateChatCreditor(self, args):
+        print("updating chat creditor...")
         self.cursor.execute("UPDATE chat_state SET creditor_id = ? WHERE chat_id = ?", args)
         self.conn.commit()
 
-    def update_chat_debtor(self, args):
+    def updateChatDebtor(self, args):
         self.cursor.execute("UPDATE chat_state SET debtor_id = ? WHERE chat_id = ?", args)
-        self.conn.commit()
-
-    def insert_chat(self, args):
-        self.cursor.execute("INSERT INTO chat_state (chat_id, state) VALUES (?, ?)", args)
-        self.conn.commit()
-
-    def search_balance(self, args):
-        self.cursor.execute("SELECT * FROM balance WHERE chat_id = ? AND creditor_id = ? AND debtor_id = ?", args)
-        return self.cursor.fetchone()
-
-    def remove_balance(self, args):
-        self.cursor.execute("DELETE * FROM balance WHERE chat_id = ? AND creditor_id = ? AND debtor_id = ?", args)
-        self.conn.commit()
-
-    def update_balance(self, args):
-        self.cursor.execute("UPDATE balance SET value = ? WHERE chat_id = ? AND creditor_id = ? AND debtor_id = ?", args)
-        self.conn.commit()
-
-    def insert_balance(self, args):
-        self.cursor.execute("INSERT INTO balance (chat_id, creditor_id, debtor_id, value) VALUES (?, ?, ?, ?)", args)
         self.conn.commit()
 
     def overview(self, args):
@@ -68,9 +113,9 @@ class DBHelper:
 
         return vector
 
-    def get_all(self):
+    def getAll(self):
         self.cursor.execute("SELECT * FROM balance")
 
-        print("printandooooo")
+        print("----------------------------")
         for linha in self.cursor.fetchall():
             print(linha)

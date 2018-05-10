@@ -2,26 +2,44 @@ import logging
 import time
 
 from telegram import ForceReply, ChatAction, ReplyKeyboardMarkup, ParseMode
-from telegram.ext import Updater, CommandHandler, MessageHandler, Filters
+from telegram.ext import Updater, CommandHandler, MessageHandler, ConversationHandler, Filters
+from dbhelper import BotDataBase
 import bot
 
+EXIT, RECEIVER, AMOUNT, REGISTER = range(-1, 3)
 
 def main():
-	updater = Updater(token='517500543:AAGRhhagJCuwESGJI1Ye2iSQb32POHZsnm4')
+	updater = Updater(token='510827284:AAGMbXJrrZG-hZyzdvf7Tnrbx-XxGcT22-c')
 	dispatcher = updater.dispatcher
 	
 	logging.basicConfig(level=logging.DEBUG,
 	                    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 	
-	dispatcher.add_handler(CommandHandler('start', bot.start))
-	dispatcher.add_handler(CommandHandler('emprestimo', bot.loan))
-	dispatcher.add_handler(CommandHandler('pagamento', bot.payment))
-	dispatcher.add_handler(CommandHandler('overview', bot.balance_overview))
-	dispatcher.add_handler(MessageHandler(Filters.text, bot.control))
-	dispatcher.add_handler(MessageHandler(Filters.command, bot.unknow))
+	dispatcher.add_handler(
+		ConversationHandler(
+
+			entry_points=[CommandHandler('emprestimo', bot.loanStart), 
+			              CommandHandler('pagamento', bot.paymentStart)],
+
+		    states={
+		        RECEIVER: [MessageHandler([Filters.text], bot.requestDebtor)],
+
+		        AMOUNT: [MessageHandler([Filters.text], bot.requestAmount)],
+
+		        REGISTER: [MessageHandler([Filters.text], bot.registerTransaction)]
+		    },
+
+		    fallbacks=[CommandHandler('exit', exit)],
+		    allow_reentry = True
+	    )
+	)
+
+	dispatcher.add_handler(CommandHandler('overview', bot.balanceOverview))
 
 	updater.start_polling()
 	updater.idle()
 
 if __name__ == '__main__':
+	db = BotDataBase()
+	db.setup()
 	main()
