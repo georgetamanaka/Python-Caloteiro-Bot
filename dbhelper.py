@@ -6,14 +6,6 @@ class BotDataBase:
         self.conn = sqlite3.connect(dbname)
         self.cursor = self.conn.cursor()
 
-    def createUsersTable(self):
-        self.cursor.execute("""CREATE TABLE IF NOT EXISTS users (
-            user_id varchar(20),
-            credits float,
-            debts float
-        );""")
-
-    
     def setup(self):        
         self.createBalancesTable()
         self.createChatsTable()
@@ -48,11 +40,9 @@ class BotDataBase:
         self.cursor.execute("DELETE FROM balance WHERE chat_id = ? AND creditor_id = ? AND debtor_id = ?", args)
         self.conn.commit()
 
-    
     """
     CRUD functionality for chats tables.
     """
-
     def createChatsTable(self):
         self.cursor.execute("""CREATE TABLE IF NOT EXISTS chat_state (
             chat_id int,
@@ -93,12 +83,32 @@ class BotDataBase:
         self.cursor.execute("DELETE FROM chat_state WHERE chat_id = ?", args)
         self.conn.commit()
 
-    def updateUser(self, args):
-        self.cursor.execute("UPDATE users WHERE user_id = ? SET credits = ? AND debts = ?", args)
-        self.conn.commit()
+    """
+    CRUD functionality for users tables.
+    """
+    def createUsersTable(self):
+        self.cursor.execute("""CREATE TABLE IF NOT EXISTS users (
+            user_id varchar(20),
+            credits float,
+            debts float,
+
+            UNIQUE (user_id)
+        );""")
 
     def createUser(self, args):
         self.cursor.execute("INSERT OR IGNORE INTO users (user_id, credits, debts) VALUES (?, ?, ?)", args)
+        self.conn.commit()
+
+    def readUser(self, args):
+        self.cursor.execute("SELECT * FROM users WHERE user_id = ?", args)
+        return self.cursor.fetchone()
+
+    def updateUserCredits(self, args):
+        self.cursor.execute("UPDATE users SET credits = ? WHERE user_id = ?", args)
+        self.conn.commit()
+
+    def updateUserDebts(self, args):
+        self.cursor.execute("UPDATE users SET debts = ? WHERE user_id = ?", args)
         self.conn.commit()
 
     def searchUser(self, args):

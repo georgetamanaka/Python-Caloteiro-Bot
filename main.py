@@ -19,7 +19,6 @@ def main():
 
 	dispatcher.add_handler(
 		ConversationHandler(
-
 			entry_points=[CommandHandler('emprestimo', bot.loanStart), 
 			              CommandHandler('pagamento', bot.paymentStart)],
 
@@ -37,6 +36,7 @@ def main():
 	)
 
 	dispatcher.add_handler(CommandHandler('overview', bot.balanceOverview))
+	dispatcher.add_handler(CommandHandler('stats', bot.stats))
 
 	updater.start_polling()
 	updater.idle()

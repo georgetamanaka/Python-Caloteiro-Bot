@@ -22,21 +22,48 @@ def start(bot, update):
 
 def getChat(chatId):
 	data = BotDataBase()
-
 	data.createChat((chatId, -1))
 
 	return data.readChat((chatId, ))
 
 def getBalance(chatInfo):
-	BotDataBase().createBalance((chatInfo[CHAT_ID], chatInfo[CREDITOR_ID], chatInfo[DEBTOR_ID], 0))
-	balance = BotDataBase().readBalance((chatInfo[CHAT_ID], chatInfo[CREDITOR_ID], chatInfo[DEBTOR_ID]))
+	database = BotDataBase()	
+	database.createBalance((chatInfo[CHAT_ID], 
+							chatInfo[CREDITOR_ID], 
+							chatInfo[DEBTOR_ID], 0))
+
+	balance = database.readBalance((chatInfo[CHAT_ID], 
+									chatInfo[CREDITOR_ID], 
+									chatInfo[DEBTOR_ID]))
 
 	return balance
 
-def updateBalance(chatInfo):
+def updateBalance(chatInfo, callbackFlag):
 	balance = getBalance(chatInfo)
-	BotDataBase().createBalance((chatInfo[CHAT_ID], chatInfo[CREDITOR_ID], chatInfo[DEBTOR_ID], 0))
+	database = BotDataBase() 
+
+	amount = callbackFlag * chatInfo[CASH_AMT]
+
+	database.createBalance((chatInfo[CHAT_ID], 
+							chatInfo[CREDITOR_ID], 
+							chatInfo[DEBTOR_ID], 0))
 	
+	
+	#update transactions statistics for creditor
+	database.createUser((chatInfo[CREDITOR_ID], 0, 0))
+	
+	userStats = database.readUser((chatInfo[CREDITOR_ID], ))
+	
+	database.updateUserCredits((userStats[1] + amount, chatInfo[CREDITOR_ID]))
+
+	#update transactions statistics for debtor
+	database.createUser((chatInfo[DEBTOR_ID], 0, 0))
+	
+	userStats = database.readUser((chatInfo[DEBTOR_ID], ))
+	
+	database.updateUserDebts((userStats[1] + amount, chatInfo[DEBTOR_ID]))
+
+	#calculates new debt depending on the operation: LOAN = CHATSTATE = 1, PAYMENT = -1
 	newDebt = balance[3] + chatInfo[CASH_AMT] * chatInfo[CHAT_STATE]
 
 	if(newDebt < 0):
@@ -48,12 +75,20 @@ def updateBalance(chatInfo):
 
 	return False
 
-def sendMessageTagging(bot, update, message, replyMarkup):
+def replyMessageTagging(bot, update, message, replyMarkup):
 	bot.send_message(
 		chat_id = update.message.chat_id, 
 		text = message,
 		reply_markup = replyMarkup,
 		reply_to_message_id = update.message.message_id, 
+		parse_mode = ParseMode.HTML
+	)
+
+def sendMessageTagging(bot, update, message, replyMarkup):
+	bot.send_message(
+		chat_id = update.message.chat_id, 
+		text = message,
+		reply_markup = replyMarkup,
 		parse_mode = ParseMode.HTML
 	)
 
@@ -72,55 +107,113 @@ def paymentStart(bot, update):
 	return RECEIVER
 
 def requestCreditor(bot, update):
-	sendMessageTagging(bot, update, "quem deu o dinheiro?", ForceReply(True, True))
+	replyMessageTagging(bot, update, "quem deu o dinheiro?", ForceReply(True, True))
 
 def requestDebtor(bot, update):
 	BotDataBase().updateChatCreditor((str(update.message.text), update.message.chat_id))
-	sendMessageTagging(bot, update, "quem recebeu?", ForceReply(True, True))
+	replyMessageTagging(bot, update, "quem recebeu?", ForceReply(True, True))
 
 	return AMOUNT
  
 def requestAmount(bot, update):
 	BotDataBase().updateChatDebtor((str(update.message.text), update.message.chat_id))
-	sendMessageTagging(bot, update, "qual o valor?", ForceReply(True, True))
+	replyMessageTagging(bot, update, "qual o valor?", ForceReply(True, True))
 
 	return REGISTER
 
 def registerTransaction(bot, update):
-	BotDataBase().updateChatAmount((float(update.message.text), int(update.message.chat_id)))
+	database = BotDataBase()
+	database.updateChatAmount((float(update.message.text), int(update.message.chat_id)))
 	chatInfo = getChat(int(update.message.chat_id)	)
+	mutualDebt = database.readBalance((chatInfo[CHAT_ID], chatInfo[DEBTOR_ID], chatInfo[CREDITOR_ID]))
 
-	if(chatInfo[1] == LOAN):
-		message = "<b>Empréstimo registrado!</b>💰"
-	else:
-		message = "<b>Pagamento registrado!</b>💰"
+	if(chatInfo[CHAT_STATE] == LOAN and mutualDebt != None):
+		message = "⚠<i>DÍVIDAS BILATERAIS</i>⚠\n" + \
+				  "Existe o registro do seguinte débto:" + \
+				  "\nCredor: " + mutualDebt[1] + \
+				  "\nCaloteiro: " + mutualDebt[2] + \
+				  "\n<i>Valor</i>: R$" + str(round(mutualDebt[3], 2))
 
-	if(updateBalance(chatInfo)):
-		message = "Pagamento superior à dívida. Tente novamente. <i>Qual o valor da dívida?</i>"
-		sendMessageTagging(bot, update, message, ForceReply(True, True))
+		if(chatInfo[CASH_AMT] < mutualDebt[3]):
+			newValue = mutualDebt[3] - chatInfo[CASH_AMT]
+
+			message += "\n\nDeseja alterar este débto para:" + \
+					   "\nCredor: " + mutualDebt[1] + \
+				  	   "\nCaloteiro: " + mutualDebt[2] + \
+				  	   "\n<i>Valor</i>: R$" + str(round(newValue, 2) ) + \
+				  	   "\n<i>e não finalizar o empréstimo atual?</i>"
+
+			keyboard = [[InlineKeyboardButton("Alterar", callback_data='1'), InlineKeyboardButton("Ignorar", callback_data='2')]]
 		
-		return AMOUNT
+		elif(chatInfo[CASH_AMT] > mutualDebt[3]):
+			message += "\n\nDeseja modificar o empréstimo atual para:" + \
+					   "\nCredor: " + mutualDebt[1] + \
+				  	   "\nCaloteiro: " + mutualDebt[2] + \
+				  	   "\n<i>Valor</i>: R$" + str(round(newValue, 2) ) + \
+				  	   "\n<i>e zerar o débto antigo?</i>"
 
-	balance = getBalance(chatInfo)
+			keyboard = [[InlineKeyboardButton("Alterar", callback_data='1'), InlineKeyboardButton("Ignorar", callback_data='2')]]
 
-	message += "\nCredor: " + chatInfo[CREDITOR_ID] + \
-			   "\nCaloteiro: " + chatInfo[DEBTOR_ID] + \
-			   "\n<i>Valor</i>: R$" + str(update.message.text) + \
-			   "\n<i>Total</i>: R$" + str(balance[3]) + \
-			   '\n\n"Aceita vale-refeição?"' \
-			   "\n<i>- Julius</i>"
+	else:
+		if(chatInfo[CHAT_STATE] == LOAN):
+			message = "<b>Empréstimo registrado!</b>💰"
+		else:
+			message = "<b>Pagamento registrado!</b>💰"
 
-	keyboard = [[InlineKeyboardButton("Cancelar", callback_data='1')]]
+		if(updateBalance(chatInfo, 1)):
+			message = "Pagamento superior à dívida. Tente novamente. <i>Qual o valor da dívida?</i>"
+			replyMessageTagging(bot, update, message, ForceReply(True, True))
+			
+			return AMOUNT
+
+		balance = getBalance(chatInfo)
+
+		message += "\nCredor: " + chatInfo[CREDITOR_ID] + \
+				   "\nCaloteiro: " + chatInfo[DEBTOR_ID] + \
+				   "\n<i>Valor</i>: R$" + str(round(chatInfo[CASH_AMT], 2)) + \
+				   "\n<i>Total</i>: R$" + str(balance[3]) + \
+				   '\n\n"Aceita vale-refeição?"' \
+				   "\n<i>- Julius</i>"
+
+		keyboard = [[InlineKeyboardButton("Cancelar", callback_data='1')]]
 
 	sendMessageTagging(bot, update, message, InlineKeyboardMarkup(keyboard))
 
 
 def cancel(bot, update):
+	callerUsername = "@" + str(update.callback_query.from_user.username)
+	
 	chatInfo = getChat(int(update.callback_query.message.chat_id))
-	chatInfo = (chatInfo[0], chatInfo[1] * -1, chatInfo[2], chatInfo[3], chatInfo[4])
-	updateBalance(chatInfo)
+	
+	chatInfo = (chatInfo[CHAT_ID], 
+				chatInfo[CHAT_STATE] * -1, 
+				chatInfo[CREDITOR_ID], 
+				chatInfo[DEBTOR_ID], 
+				chatInfo[CASH_AMT])
+	
+	if(chatInfo[CREDITOR_ID] == callerUsername):
+		updateBalance(chatInfo, -1)
+		message = "Operação cancelada."
+	
+	else:
+		message = callerUsername + ", você não é o credor desta transação ou o tempo de cancelamento expirou."
 
-	sendMessageTagging(bot, update.callback_query, "Operação cancelada.", ForceReply(False, True))
+	replyMessageTagging(bot, update.callback_query, message, ForceReply(False, True))
+
+def stats(bot, update):
+	
+	database = BotDataBase()
+	username = "@" + str(update.message.from_user.username)
+	userStats = database.readUser((username, ))
+
+	if(userStats == None):
+		message = "Você ainda não possui estatísticas."
+	else:
+		message = username + ":" + \
+				  "\n\nemprestou:\n✅ R$" + str(format(userStats[1], ".2f")) + \
+				  "\n\npegou emprestado:\n🅾 R$" + str(format(userStats[2], ".2f"))
+
+	sendMessageTagging(bot, update, message, ForceReply(False, False))
 
 def balanceOverview(bot, update):
 	chatBalance = BotDataBase().overview((int(update.message.chat_id), ))
@@ -128,7 +221,7 @@ def balanceOverview(bot, update):
 	nDebtor = 1
 	debtor = ""
 	
-	message = "<b>Balanço de dívidas</b>💰\n"
+	message = "<i>BALANÇO FINANCEIRO</i>\n"
 
 	for transaction in chatBalance:
 		if(transaction[2] != debtor):
@@ -136,6 +229,6 @@ def balanceOverview(bot, update):
 			message += "\n" + str(nDebtor) + ". " + debtor + " deve:\n"
 			nDebtor += 1
 
-		message += "para " + transaction[1] + " R$" + str(transaction[3]) + "\n"
+		message += "para " + transaction[1] + " R$" + str(round(transaction[3],2)) + "\n"
 
 	sendMessageTagging(bot, update, message, ForceReply(False, True))
