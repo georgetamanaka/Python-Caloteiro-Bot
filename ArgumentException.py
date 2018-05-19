@@ -15,8 +15,11 @@ def parser(linha, flag):
 	user1 = ''
 	user2 = ''
 	val = ''
+	i = 0
+	while(linha[i] != ' '):
+		i += 1
 	if(flag == 1): #preciso ler dois usuarios e um numero float
-		for i in range(len(linha)):
+		while(i < len(linha)):
 			if (linha[i] == '@'): #andei ate chegar no primeiro usuario
 				while((i < len(linha)) and (linha[i] != ' ')):
 					if(aux == 0):
@@ -33,18 +36,19 @@ def parser(linha, flag):
 					i+=1
 				while( (i < len(linha)) and (linha[i] == ' ')): #retirando o espaco em branco
 					i += 1
-				while((i < len(linha))):
+				while((i < len(linha)) and (linha[i] != ' ')):
 					if(aux == 2):
 						aux = 3
 					val += linha[i]
 					i+=1
 				break
+			i += 1
 		if((aux == 3) and (number(val) == 1)): #esse aux checa se os 3 campos foram preenchidos de maneira correta
 			return {user1,user2,val}
 		else:
 			return -1
 	elif(flag ==2): #aqui so tenho que ler um unico usuario
-		for i in range(len(linha)):
+		while(i < len(linha)):
 			if (linha[i] == '@'): #andei ate chegar no primeiro usuario
 				while((i < len(linha)) and (linha[i] != ' ') ):
 					if(aux == 0):
@@ -52,12 +56,13 @@ def parser(linha, flag):
 					user1 += linha[i]
 					i+=1
 				break
+			i += 1
 		if(aux == 1):
 			return {user1, -1, -1}
 		else:
 			return -1
 	else:
-		for i in range(len(linha)):
+		while(i <len(linha)):
 			if (linha[i] == '@'): #andei ate chegar no primeiro usuario
 				while((i < len(linha)) and (linha[i] != ' ')):
 					if(aux == 0):
@@ -72,6 +77,7 @@ def parser(linha, flag):
 					user2 += linha[i]
 					i+=1
 				break
+			i += 1
 		if((aux == 2)): #esse aux checa se os 2 campos foram preenchidos de maneira correta
 			return {user1,user2, -1}
 		else:
@@ -81,12 +87,14 @@ def checa_entrada(linha,flag):
 	temp = parser(linha,flag)
 	if(temp == -1):
 		if(flag == 1):
-			print("Entrada invalida: esperado @credor @devedor valor")
+		#	print("Entrada invalida: esperado @credor @devedor valor")
+			return -1
 		elif(flag ==2):
-			print("Entrada invalida: esperado @username")
+		#	print("Entrada invalida: esperado @username")
+			return -2
 		else:
-			print("Entrada invalida: esperado @credor @devedor")
-		return -1
+		#	print("Entrada invalida: esperado @credor @devedor")
+			return -3
 	else:
 		return temp
 
