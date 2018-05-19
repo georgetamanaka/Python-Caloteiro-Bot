@@ -86,6 +86,7 @@ def checa_entrada(linha,flag):
 			print("Entrada invalida: esperado @username")
 		else:
 			print("Entrada invalida: esperado @credor @devedor")
+		return -1
 	else:
 		return temp
 
