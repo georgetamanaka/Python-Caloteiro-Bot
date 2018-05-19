@@ -27,7 +27,7 @@ def main():
 
 		        AMOUNT: [MessageHandler([Filters.text], bot.requestAmount)],
 
-		        REGISTER: [MessageHandler([Filters.text], bot.registerTransaction)]
+		        REGISTER: [MessageHandler([Filters.text], bot.setValue)]
 		    },
 
 		    fallbacks=[CommandHandler('exit', exit)],

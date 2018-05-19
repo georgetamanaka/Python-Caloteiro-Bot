@@ -2,6 +2,7 @@ try:
 	from telegram import ForceReply, ChatAction, ReplyKeyboardMarkup, ParseMode, InlineKeyboardButton, InlineKeyboardMarkup
 	from telegram.ext import Updater, CommandHandler, MessageHandler, Filters
 	from dbhelper import BotDataBase
+	import ArgumentException
 
 except KeyboardInterrupt:
 	print ("\n\nStopping...")
@@ -51,12 +52,16 @@ def updateBalance(chatInfo, callbackFlag):
 	
 	#update transactions statistics for creditor
 	database.createUser((chatInfo[CREDITOR_ID], 0, 0))
+	
 	userStats = database.readUser((chatInfo[CREDITOR_ID], ))
+	
 	database.updateUserCredits((userStats[1] + amount, chatInfo[CREDITOR_ID]))
 
 	#update transactions statistics for debtor
 	database.createUser((chatInfo[DEBTOR_ID], 0, 0))
+	
 	userStats = database.readUser((chatInfo[DEBTOR_ID], ))
+	
 	database.updateUserDebts((userStats[1] + amount, chatInfo[DEBTOR_ID]))
 
 	#calculates new debt depending on the operation: LOAN = CHATSTATE = 1, PAYMENT = -1
@@ -91,9 +96,21 @@ def sendMessageTagging(bot, update, message, replyMarkup):
 def loanStart(bot, update):
 	getChat(int(update.message.chat_id))
 	BotDataBase().updateChatState((1, int(update.message.chat_id)))
-	requestCreditor(bot, update)
+	
+	args = ArgumentException.checa_entrada(str(update.message.text), 1)
 
-	return RECEIVER
+	if(args != -1):
+		database = BotDataBase() 
+		database.updateChatCreditor((args[0], update.message.chat_id))
+		database.updateChatDebtor((args[1], update.message.chat_id))
+		database.updateChatAmount((args[2], update.message.chat_id))
+
+		registerTransaction(bot, update)
+
+		return EXIT
+	else:
+		requestCreditor(bot, update)
+		return RECEIVER
 
 def paymentStart(bot, update):
 	getChat(int(update.message.chat_id))
@@ -117,9 +134,13 @@ def requestAmount(bot, update):
 
 	return REGISTER
 
-def registerTransaction(bot, update):
+def setValue(bot, update):
 	database = BotDataBase()
 	database.updateChatAmount((float(update.message.text), int(update.message.chat_id)))
+	registerTransaction(bot, update)
+
+
+def registerTransaction(bot, update):
 	chatInfo = getChat(int(update.message.chat_id)	)
 	mutualDebt = database.readBalance((chatInfo[CHAT_ID], chatInfo[DEBTOR_ID], chatInfo[CREDITOR_ID]))
 
