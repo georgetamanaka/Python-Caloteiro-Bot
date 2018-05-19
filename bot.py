@@ -51,16 +51,12 @@ def updateBalance(chatInfo, callbackFlag):
 	
 	#update transactions statistics for creditor
 	database.createUser((chatInfo[CREDITOR_ID], 0, 0))
-	
 	userStats = database.readUser((chatInfo[CREDITOR_ID], ))
-	
 	database.updateUserCredits((userStats[1] + amount, chatInfo[CREDITOR_ID]))
 
 	#update transactions statistics for debtor
 	database.createUser((chatInfo[DEBTOR_ID], 0, 0))
-	
 	userStats = database.readUser((chatInfo[DEBTOR_ID], ))
-	
 	database.updateUserDebts((userStats[1] + amount, chatInfo[DEBTOR_ID]))
 
 	#calculates new debt depending on the operation: LOAN = CHATSTATE = 1, PAYMENT = -1
@@ -128,7 +124,7 @@ def registerTransaction(bot, update):
 	mutualDebt = database.readBalance((chatInfo[CHAT_ID], chatInfo[DEBTOR_ID], chatInfo[CREDITOR_ID]))
 
 	if(chatInfo[CHAT_STATE] == LOAN and mutualDebt != None):
-		message = "⚠<i>DÍVIDAS BILATERAIS</i>⚠\n" + \
+		message = "⚠<i>DÍVIDAS BILATERAIS</i>\n" + \
 				  "Existe o registro do seguinte débto:" + \
 				  "\nCredor: " + mutualDebt[1] + \
 				  "\nCaloteiro: " + mutualDebt[2] + \
@@ -137,11 +133,9 @@ def registerTransaction(bot, update):
 		if(chatInfo[CASH_AMT] < mutualDebt[3]):
 			newValue = mutualDebt[3] - chatInfo[CASH_AMT]
 
-			message += "\n\nDeseja alterar este débto para:" + \
-					   "\nCredor: " + mutualDebt[1] + \
-				  	   "\nCaloteiro: " + mutualDebt[2] + \
+			message += "\n\nDeseja alterar o valor do débto acima para:" + \
 				  	   "\n<i>Valor</i>: R$" + str(round(newValue, 2) ) + \
-				  	   "\n<i>e não finalizar o empréstimo atual?</i>"
+				  	   "\n<i>e não registrar o empréstimo atual?</i>"
 
 			keyboard = [[InlineKeyboardButton("Alterar", callback_data='1'), InlineKeyboardButton("Ignorar", callback_data='2')]]
 		
