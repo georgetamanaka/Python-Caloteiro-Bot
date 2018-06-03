@@ -96,21 +96,9 @@ def sendMessageTagging(bot, update, message, replyMarkup):
 def loanStart(bot, update):
 	getChat(int(update.message.chat_id))
 	BotDataBase().updateChatState((1, int(update.message.chat_id)))
+	requestCreditor(bot, update)
 	
-	args = ArgumentException.checa_entrada(str(update.message.text), 1)
-
-	if(args != -1):
-		database = BotDataBase() 
-		database.updateChatCreditor((args[0], update.message.chat_id))
-		database.updateChatDebtor((args[1], update.message.chat_id))
-		database.updateChatAmount((args[2], update.message.chat_id))
-
-		registerTransaction(bot, update)
-
-		return EXIT
-	else:
-		requestCreditor(bot, update)
-		return RECEIVER
+	return RECEIVER
 
 def paymentStart(bot, update):
 	getChat(int(update.message.chat_id))
@@ -141,11 +129,12 @@ def setValue(bot, update):
 
 
 def registerTransaction(bot, update):
+	database = BotDataBase()
 	chatInfo = getChat(int(update.message.chat_id)	)
 	mutualDebt = database.readBalance((chatInfo[CHAT_ID], chatInfo[DEBTOR_ID], chatInfo[CREDITOR_ID]))
 
 	if(chatInfo[CHAT_STATE] == LOAN and mutualDebt != None):
-		message = "⚠<i>DÍVIDAS BILATERAIS</i>\n" + \
+		message = "⚠️<i>DÍVIDAS BILATERAIS</i>⚠️\n\n" + \
 				  "Existe o registro do seguinte débto:" + \
 				  "\nCredor: " + mutualDebt[1] + \
 				  "\nCaloteiro: " + mutualDebt[2] + \
@@ -156,18 +145,21 @@ def registerTransaction(bot, update):
 
 			message += "\n\nDeseja alterar o valor do débto acima para:" + \
 				  	   "\n<i>Valor</i>: R$" + str(round(newValue, 2) ) + \
-				  	   "\n<i>e não registrar o empréstimo atual?</i>"
+				  	   "<i>e não registrar o empréstimo atual?</i>"
 
-			keyboard = [[InlineKeyboardButton("Alterar", callback_data='1'), InlineKeyboardButton("Ignorar", callback_data='2')]]
+			keyboard = [[InlineKeyboardButton("Alterar", callback_data='2'), InlineKeyboardButton("Ignorar", callback_data='5')]]
 		
 		elif(chatInfo[CASH_AMT] > mutualDebt[3]):
 			message += "\n\nDeseja modificar o empréstimo atual para:" + \
 					   "\nCredor: " + mutualDebt[1] + \
 				  	   "\nCaloteiro: " + mutualDebt[2] + \
 				  	   "\n<i>Valor</i>: R$" + str(round(newValue, 2) ) + \
-				  	   "\n<i>e zerar o débto antigo?</i>"
+				  	   "<i>e zerar o débto antigo?</i>"
 
-			keyboard = [[InlineKeyboardButton("Alterar", callback_data='1'), InlineKeyboardButton("Ignorar", callback_data='2')]]
+			keyboard = [[InlineKeyboardButton("Alterar", callback_data='3'), InlineKeyboardButton("Ignorar", callback_data='5')]]
+		else:
+			message += "\n\nDeseja zerar o valor do débto acima?"
+			keyboard = [[InlineKeyboardButton("Zerar", callback_data='4'), InlineKeyboardButton("Ignorar", callback_data='5')]]
 
 	else:
 		if(chatInfo[CHAT_STATE] == LOAN):
@@ -196,22 +188,29 @@ def registerTransaction(bot, update):
 
 
 def cancel(bot, update):
-	callerUsername = "@" + str(update.callback_query.from_user.username)
+	query = update.callback_query
+	option = int(query.data)
+
+	if(option == 1):
+		callerUsername = "@" + str(query.from_user.username)
+		
+		chatInfo = getChat(int(query.message.chat_id))
+		
+		chatInfo = (chatInfo[CHAT_ID], 
+					chatInfo[CHAT_STATE] * -1, 
+					chatInfo[CREDITOR_ID], 
+					chatInfo[DEBTOR_ID], 
+					chatInfo[CASH_AMT])
+		
+		if(chatInfo[CREDITOR_ID] == callerUsername):
+			updateBalance(chatInfo, -1)
+			message = "Operação cancelada."
+		
+		else:
+			message = callerUsername + ", você não é o credor desta transação ou o tempo de cancelamento expirou."
 	
-	chatInfo = getChat(int(update.callback_query.message.chat_id))
-	
-	chatInfo = (chatInfo[CHAT_ID], 
-				chatInfo[CHAT_STATE] * -1, 
-				chatInfo[CREDITOR_ID], 
-				chatInfo[DEBTOR_ID], 
-				chatInfo[CASH_AMT])
-	
-	if(chatInfo[CREDITOR_ID] == callerUsername):
-		updateBalance(chatInfo, -1)
-		message = "Operação cancelada."
-	
-	else:
-		message = callerUsername + ", você não é o credor desta transação ou o tempo de cancelamento expirou."
+	elif(option == 2):
+
 
 	replyMessageTagging(bot, update.callback_query, message, ForceReply(False, True))
 
